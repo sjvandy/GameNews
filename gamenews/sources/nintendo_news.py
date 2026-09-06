@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 import aiohttp
 from bs4 import BeautifulSoup
 
-import config
-from sources import ContentItem
+from gamenews import config
+from gamenews.sources import ContentItem
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,6 @@ async def fetch() -> list[ContentItem]:
 
         data = json.loads(script_tag.string)
 
-        # Navigate the Next.js page props to find articles
         page_props = data.get("props", {}).get("pageProps", {})
         articles = _extract_articles(page_props)
 
@@ -103,11 +102,9 @@ async def fetch() -> list[ContentItem]:
 
 def _extract_articles(page_props: dict) -> list[dict]:
     """Try multiple known paths to locate the article list in __NEXT_DATA__."""
-    # Direct articles list
     if "articles" in page_props:
         return page_props["articles"]
 
-    # Nested under initialApolloState or similar
     for key in ("initialData", "data", "content"):
         if key in page_props and isinstance(page_props[key], dict):
             nested = page_props[key]
@@ -115,7 +112,6 @@ def _extract_articles(page_props: dict) -> list[dict]:
                 if sub_key in nested and isinstance(nested[sub_key], list):
                     return nested[sub_key]
 
-    # Fallback: search for any list of dicts with a 'title' key
     for value in page_props.values():
         if isinstance(value, list) and value and isinstance(value[0], dict):
             if "title" in value[0]:

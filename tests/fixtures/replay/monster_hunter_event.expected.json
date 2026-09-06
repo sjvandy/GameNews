@@ -1,0 +1,24 @@
+{
+  "unique_id": "youtube:mh-event-quest-1",
+  "title": "Monster Hunter Wilds: Event Quest \u2014 Arch Tempered Rathalos",
+  "routed_channel_ids": [
+    222222222222222222
+  ],
+  "matched_franchises": [
+    "monster-hunter"
+  ],
+  "ingame_event": {
+    "event_type": "ingame",
+    "franchise_key": "monster-hunter",
+    "branded_franchise_key": null,
+    "source_unique_id": "youtube:mh-event-quest-1",
+    "name": "Monster Hunter Wilds: Event Quest \u2014 Arch Tempered Rathalos",
+    "description": "The Arch Tempered Rathalos event quest is live now, through September 20, 2026.",
+    "start_time": "2026-09-20T00:00:00+00:00",
+    "end_time": "2026-09-22T00:00:00+00:00",
+    "location": "https://www.youtube.com/watch?v=mh-event-quest-1",
+    "cover_image_url": "https://i.ytimg.com/vi/mh-event-quest-1/hqdefault.jpg"
+  },
+  "media_event": null,
+  "rejection_reasons": []
+}
