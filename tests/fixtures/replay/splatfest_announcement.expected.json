@@ -1,0 +1,24 @@
+{
+  "unique_id": "nintendo:splatfest-2026-09",
+  "title": "Splatoon 3 Splatfest announcement: Grass vs Water vs Fire",
+  "routed_channel_ids": [
+    111111111111111111
+  ],
+  "matched_franchises": [
+    "splatoon-3"
+  ],
+  "ingame_event": {
+    "event_type": "ingame",
+    "franchise_key": "splatoon-3",
+    "branded_franchise_key": null,
+    "source_unique_id": "nintendo:splatfest-2026-09",
+    "name": "Splatoon 3 Splatfest announcement: Grass vs Water vs Fire",
+    "description": "Get your gear ready! The next Splatfest runs from September 10 to September 12, 2026.",
+    "start_time": "2026-09-10T00:00:00+00:00",
+    "end_time": "2026-09-12T00:00:00+00:00",
+    "location": "Splatoon 3 \u2014 Online",
+    "cover_image_url": "https://assets.nintendo.com/splatfest-grass-water-fire.jpg"
+  },
+  "media_event": null,
+  "rejection_reasons": []
+}

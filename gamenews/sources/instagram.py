@@ -5,8 +5,7 @@ from datetime import datetime, timezone
 
 import aiohttp
 
-import config
-from sources import ContentItem
+from gamenews.sources import ContentItem
 
 logger = logging.getLogger(__name__)
 
@@ -14,16 +13,11 @@ API_URL = "https://www.instagram.com/api/v1/users/web_profile_info/"
 APP_ID = "936619743392459"
 
 
-async def fetch() -> list[ContentItem]:
-    """Fetch recent posts from Nintendo's Instagram via undocumented web API.
+async def fetch(username: str) -> list[ContentItem]:
+    """Fetch recent posts from an Instagram account via undocumented web API.
 
     This endpoint is fragile and may return 401/403/429 at any time.
-    Controlled by the ENABLE_INSTAGRAM config flag.
     """
-    if not config.ENABLE_INSTAGRAM:
-        logger.debug("Instagram: disabled via config")
-        return []
-
     try:
         headers = {
             "User-Agent": (
@@ -33,13 +27,14 @@ async def fetch() -> list[ContentItem]:
             ),
             "x-ig-app-id": APP_ID,
         }
-        params = {"username": config.INSTAGRAM_USERNAME}
+        params = {"username": username}
 
         async with aiohttp.ClientSession() as session:
             async with session.get(API_URL, headers=headers, params=params) as resp:
                 if resp.status in (401, 403, 429):
                     logger.warning(
-                        "Instagram: HTTP %d - consider setting ENABLE_INSTAGRAM=false",
+                        "Instagram (%s): HTTP %d - the undocumented API may be blocked",
+                        username,
                         resp.status,
                     )
                     return []
@@ -88,13 +83,14 @@ async def fetch() -> list[ContentItem]:
                         "is_video": is_video,
                         "likes": likes,
                         "shortcode": shortcode,
+                        "username": username,
                     },
                 )
             )
 
-        logger.info("Instagram: fetched %d items", len(items))
+        logger.info("Instagram (%s): fetched %d items", username, len(items))
         return items
 
     except Exception:
-        logger.exception("Instagram: fetch failed")
+        logger.exception("Instagram (%s): fetch failed", username)
         return []

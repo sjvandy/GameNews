@@ -1,0 +1,53 @@
+franchises:
+  - key: splatoon-3
+    display_name: "Splatoon 3"
+    channel_id: 929578849350582304
+    role_id: 1218346373347545098
+    enable_ingame_events: true
+    event_keywords: ["splatfest", "big run", "eggstra work", "in-game event"]
+    reporter_name: "Deep Cut"
+    reporter_avatar_path: "gamenews/assets/reporters/deep_cut.png"
+    sources:
+      - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["splatoon"]}
+      - {type: instagram, username: "nintendoamerica", title_keywords: ["splatoon"]}
+      - {type: news, title_keywords: ["splatoon"]}
+      - {type: splatoon3ink, feeds: ["schedules", "festivals"]}
+
+  - key: monster-hunter
+    display_name: "Monster Hunter"
+    channel_id: 1218353401264472264
+    role_id: 1218352935017119896
+    enable_ingame_events: true
+    event_keywords: ["event quest", "collaboration", "limited-time"]
+    reporter_name: "Alma"
+    reporter_avatar_path: "gamenews/assets/reporters/alma.png"
+    sources:
+      - {type: youtube, channel_id: "UCVS0xBpOtXBAl12rdG67-OQ", title_keywords: ["wilds"]}
+
+  - key: legend-of-zelda
+    display_name: "Legend of Zelda"
+    channel_id: 1305001399871868969
+    role_id: 1546047340060614656
+    enable_ingame_events: false
+    reporter_name: "Purah"
+    reporter_avatar_path: "gamenews/assets/reporters/purah.png"
+    sources:
+      - {type: news, title_keywords: ["zelda"]}
+      - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["zelda"]}
+
+media_events:
+  fallback_channel_id: 1469077505528037521
+  reporter_name: "Kosuke Takagi"
+  reporter_avatar_path: "gamenews/assets/reporters/mii.png"
+  sources:
+    - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["nintendo direct"]}
+    - {type: youtube, channel_id: "UC-2Y8dQb0S6DtpxNgAKoJKA", title_keywords: ["state of play"]}
+  # Matched against titles/descriptions that also contain the standalone
+  # word "Direct" (see events/classify.py) - kept as single trigger words
+  # rather than full phrases like "zelda direct", since real titles often
+  # insert a qualifier between them (e.g. "The Legend of Zelda 40th
+  # Anniversary Direct").
+  franchise_branding_keywords:
+    splatoon-3: ["splatoon"]
+    monster-hunter: ["monster hunter"]
+    legend-of-zelda: ["zelda"]

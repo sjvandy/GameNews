@@ -1,0 +1,15 @@
+{
+  "unique_id": "youtube:mh-event-quest-2",
+  "title": "Monster Hunter Event Quest: Special Collaboration Announced!",
+  "routed_channel_ids": [
+    222222222222222222
+  ],
+  "matched_franchises": [
+    "monster-hunter"
+  ],
+  "ingame_event": null,
+  "media_event": null,
+  "rejection_reasons": [
+    "in-game event matched for 'monster-hunter' but no parseable (future) date found"
+  ]
+}

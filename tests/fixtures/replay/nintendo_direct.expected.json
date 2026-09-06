@@ -1,0 +1,22 @@
+{
+  "unique_id": "youtube:nintendo-direct-2026-09-09",
+  "title": "Nintendo Direct \u2014 9.9.2026",
+  "routed_channel_ids": [
+    999999999999999999
+  ],
+  "matched_franchises": [],
+  "ingame_event": null,
+  "media_event": {
+    "event_type": "media",
+    "franchise_key": null,
+    "branded_franchise_key": null,
+    "source_unique_id": "youtube:nintendo-direct-2026-09-09",
+    "name": "Nintendo Direct \u2014 9.9.2026",
+    "description": "Tune in for roughly 45 minutes of information about upcoming Nintendo Switch software.",
+    "start_time": "2026-09-09T00:00:00+00:00",
+    "end_time": "2026-09-09T01:00:00+00:00",
+    "location": "https://www.youtube.com/watch?v=nintendo-direct-2026-09-09",
+    "cover_image_url": "https://i.ytimg.com/vi/nintendo-direct-2026-09-09/hqdefault.jpg"
+  },
+  "rejection_reasons": []
+}

@@ -1,0 +1,10 @@
+franchises:
+  - key: splatoon-3
+    display_name: "Splatoon 3"
+    channel_id: 111111111111111111
+    enable_ingame_events: true
+    sources:
+      - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["splatoon"]}
+
+media_events:
+  fallback_channel_id: 999999999999999999

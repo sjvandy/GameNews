@@ -1,0 +1,24 @@
+{
+  "unique_id": "youtube:zelda-direct-2026-09-08",
+  "title": "The Legend of Zelda Direct \u2014 9.4.2026",
+  "routed_channel_ids": [
+    333333333333333333
+  ],
+  "matched_franchises": [
+    "legend-of-zelda"
+  ],
+  "ingame_event": null,
+  "media_event": {
+    "event_type": "media",
+    "franchise_key": "legend-of-zelda",
+    "branded_franchise_key": "legend-of-zelda",
+    "source_unique_id": "youtube:zelda-direct-2026-09-08",
+    "name": "The Legend of Zelda Direct \u2014 9.4.2026",
+    "description": "Celebrating 40 years of The Legend of Zelda with roughly 30 minutes of news.",
+    "start_time": "2026-09-04T00:00:00+00:00",
+    "end_time": "2026-09-04T01:00:00+00:00",
+    "location": "Legend of Zelda \u2014 Online",
+    "cover_image_url": "https://i.ytimg.com/vi/zelda-direct-2026-09-08/hqdefault.jpg"
+  },
+  "rejection_reasons": []
+}
