@@ -38,12 +38,13 @@ def build_event_candidate(
     branded_franchise_key: str | None = None,
     location_override: str | None = None,
 ) -> EventCandidate:
-    if location_override:
-        location = location_override
-    elif franchise:
-        location = f"{franchise.display_name} — Online"
-    else:
-        location = item.url or "Online"
+    # Discord's EXTERNAL event location field is meant for exactly this - a
+    # link/address for the event - so it always points back to the source
+    # content (the YouTube video, news article, etc.) rather than a static
+    # "Franchise — Online" label. This is also what lets a separate content
+    # post be skipped when an event is created for the same item (see
+    # ContentPollCog.maybe_create_events): the event card itself is the link.
+    location = location_override or item.url or "Online"
 
     return EventCandidate(
         event_type=event_type,

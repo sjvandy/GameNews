@@ -228,19 +228,28 @@ class AdminCog(commands.Cog):
             if await self.bot.db.is_posted(item.unique_id, channel_id)
         ]
 
-        await content_poll.post_item(routed_item)
-        await content_poll.maybe_create_events(routed_item)
+        # Same order as a normal poll cycle: check events first, and only
+        # post the plain content embed if this item isn't event-worthy -
+        # otherwise the event's own announcement (which links back to this
+        # video) would be a redundant second message about the same thing.
+        event_created = await content_poll.maybe_create_events(routed_item)
+        if event_created:
+            await content_poll.mark_all_posted(routed_item)
+        else:
+            await content_poll.post_item(routed_item)
 
         channel_mentions = []
         for channel_id in routed_item.channel_ids:
             channel = self.bot.get_channel(channel_id)
             channel_mentions.append(channel.mention if channel else str(channel_id))
 
-        status = "already posted to" if already_posted else "posted to"
-        await ctx.send(
-            f"Processed **{item.title}** - {status} {', '.join(channel_mentions)}. "
-            "Check the channel(s) for any event that was created."
-        )
+        if event_created:
+            status = "created an event for"
+        elif already_posted:
+            status = "already posted to"
+        else:
+            status = "posted to"
+        await ctx.send(f"Processed **{item.title}** - {status} {', '.join(channel_mentions)}.")
 
     @commands.hybrid_command(name="refresh")
     @commands.is_owner()

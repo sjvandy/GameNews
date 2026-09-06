@@ -10,6 +10,11 @@ Big Run, Eggstra Work, Monster Hunter events) - announcing each one (tagging
 the franchise's role) the moment it's scheduled, auto-starting it, and
 pinging again when it goes live.
 
+When a video is Direct/event-worthy, only the event announcement is posted
+- not a separate plain content embed for the same video - since the event's
+own `location` field always links back to the source, so there's no
+redundant second message about the same thing.
+
 Each franchise channel posts under its own in-universe reporter persona
 (a distinct name + avatar, via a per-channel Discord webhook) rather than
 the bot's own generic identity:

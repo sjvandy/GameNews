@@ -32,6 +32,22 @@ def test_valid_ingame_event_payload_shape(registry):
     assert candidate.cover_image_url == "https://example.com/splatfest.jpg"
 
 
+def test_location_links_back_to_source_content(registry):
+    # Feature request: the event itself should link to its source (video,
+    # article, etc.) rather than a static "Franchise — Online" label, so a
+    # separate content post isn't needed alongside the event announcement.
+    franchise = registry.get("splatoon-3")
+    item = make_item(url="https://www.youtube.com/watch?v=abc123")
+    date_range = DateRange(
+        start=datetime(2026, 9, 10, tzinfo=timezone.utc),
+        end=datetime(2026, 9, 12, tzinfo=timezone.utc),
+    )
+
+    candidate = build_event_candidate(item, "ingame", date_range, franchise=franchise)
+
+    assert candidate.location == item.url
+
+
 def test_name_and_description_are_truncated_for_discord_limits(registry):
     franchise = registry.get("splatoon-3")
     item = make_item(title="x" * 200, description="y" * 2000)

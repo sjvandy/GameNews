@@ -118,14 +118,25 @@ class ContentPollCog(commands.Cog):
                     config.MAX_CONTENT_AGE_DAYS,
                     routed_item.item.title,
                 )
-                for channel_id in routed_item.channel_ids:
-                    await self.bot.db.mark_posted(
-                        routed_item.item.unique_id, channel_id, routed_item.item.source
-                    )
+                await self.mark_all_posted(routed_item)
                 continue
 
-            await self.post_item(routed_item)
-            await self.maybe_create_events(routed_item)
+            # Check events first: if this item is Direct/event-worthy, its
+            # own announcement (with a link back to the source) is the one
+            # message that should appear - posting the plain content embed
+            # too would just be a redundant second message in the same
+            # channel about the same thing.
+            event_created = await self.maybe_create_events(routed_item)
+            if event_created:
+                await self.mark_all_posted(routed_item)
+            else:
+                await self.post_item(routed_item)
+
+    async def mark_all_posted(self, routed_item: RoutedItem) -> None:
+        for channel_id in routed_item.channel_ids:
+            await self.bot.db.mark_posted(
+                routed_item.item.unique_id, channel_id, routed_item.item.source
+            )
 
     async def _seed_newsroom_if_needed(self, routed: list[RoutedItem]) -> None:
         newsroom_id = self.bot.franchises.media_events.fallback_channel_id
@@ -173,12 +184,21 @@ class ContentPollCog(commands.Cog):
             except discord.HTTPException:
                 logger.exception("Failed to send embed for %s to channel %s", item.unique_id, channel_id)
 
-    async def maybe_create_events(self, routed_item: RoutedItem) -> None:
-        """Public: see post_item's docstring."""
+    async def maybe_create_events(self, routed_item: RoutedItem) -> bool:
+        """Public: see post_item's docstring.
+
+        Returns True if this item was event-worthy (an in-game or media
+        event was matched, regardless of whether create_event() treats it
+        as new or already-tracked) - the caller uses this to skip the plain
+        content post, since the event's own announcement (linking back to
+        the source) is the one message that should appear for it.
+        """
         item = routed_item.item
         guild = self.bot.get_guild(config.GUILD_ID)
         if guild is None:
-            return
+            return False
+
+        event_created = False
 
         for franchise_key in routed_item.matched_franchises:
             franchise = self.bot.franchises.get(franchise_key)
@@ -197,10 +217,11 @@ class ContentPollCog(commands.Cog):
 
             candidate = build_event_candidate(item, "ingame", date_range, franchise=franchise)
             await self.bot.event_manager.create_event(guild, candidate)
+            event_created = True
 
         media_classification = classify.classify_media(item, self.bot.franchises)
         if media_classification is None or not media_classification.is_direct:
-            return
+            return event_created
 
         date_range = event_dates.extract_date_range(
             f"{item.title} {item.description}",
@@ -208,7 +229,7 @@ class ContentPollCog(commands.Cog):
         )
         if date_range is None:
             logger.warning("Media event candidate with unparseable dates - skipping: %s", item.title)
-            return
+            return event_created
 
         branded_franchise = self.bot.franchises.get(media_classification.branded_franchise_key)
         candidate = build_event_candidate(
@@ -219,6 +240,7 @@ class ContentPollCog(commands.Cog):
             branded_franchise_key=media_classification.branded_franchise_key,
         )
         await self.bot.event_manager.create_event(guild, candidate)
+        return True
 
     @poll_sources.before_loop
     async def before_poll(self) -> None:
