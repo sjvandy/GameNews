@@ -27,6 +27,20 @@ def _parse_date(date_str: str) -> datetime | None:
     return None
 
 
+def _find_prefixed(mapping: dict | None, prefix: str):
+    """Apollo Client's normalized cache stores a field called with query
+    arguments under a literal key like 'text({"characterLimit":250})', not
+    just 'text' - this finds such a key by prefix instead of guessing the
+    exact argument serialization, which could change independently of the
+    field itself."""
+    if not isinstance(mapping, dict):
+        return None
+    for key, value in mapping.items():
+        if key.startswith(prefix):
+            return value
+    return None
+
+
 async def fetch() -> list[ContentItem]:
     """Fetch recent articles from Nintendo's news page via __NEXT_DATA__."""
     try:
@@ -58,39 +72,7 @@ async def fetch() -> list[ContentItem]:
             logger.warning("Nintendo News: no articles found in page data")
             return []
 
-        items: list[ContentItem] = []
-        for article in articles:
-            entry_id = article.get("id", article.get("contentfulEntryId", ""))
-            if not entry_id:
-                continue
-
-            title = article.get("title", "Untitled")
-            slug = article.get("slug", article.get("url", ""))
-            url = slug if slug.startswith("http") else f"https://www.nintendo.com{slug}"
-            summary = article.get("description", article.get("subtitle", ""))
-            published = _parse_date(article.get("publishDate", article.get("date", "")))
-
-            image_url = ""
-            public_id = article.get("publicId", "")
-            if not public_id:
-                image = article.get("image", {})
-                if isinstance(image, dict):
-                    public_id = image.get("publicId", "")
-            if public_id:
-                image_url = f"{IMAGE_BASE}/{public_id}"
-
-            items.append(
-                ContentItem(
-                    source="nintendo_news",
-                    unique_id=f"nintendo:{entry_id}",
-                    title=title,
-                    url=url,
-                    description=summary[:300],
-                    image_url=image_url,
-                    published_at=published,
-                    extra={"entry_id": entry_id},
-                )
-            )
+        items = [item for item in (_build_item(article) for article in articles) if item is not None]
 
         logger.info("Nintendo News: fetched %d items", len(items))
         return items
@@ -100,8 +82,72 @@ async def fetch() -> list[ContentItem]:
         return []
 
 
+def _build_item(article: dict) -> ContentItem | None:
+    entry_id = article.get("id", article.get("contentfulEntryId", ""))
+    if not entry_id:
+        return None
+
+    title = article.get("title", "Untitled")
+
+    # Apollo's cache stores the relative URL under a literal
+    # 'url({"relative":true})' key; "slug" alone (e.g. "some-article-title")
+    # is missing the "/us/whatsnew/" path Nintendo actually serves it under.
+    relative_url = _find_prefixed(article, "url(")
+    slug = article.get("slug", article.get("url", ""))
+    if relative_url:
+        url = relative_url if relative_url.startswith("http") else f"https://www.nintendo.com{relative_url}"
+    elif slug:
+        url = slug if slug.startswith("http") else f"https://www.nintendo.com/us/whatsnew/{slug}/"
+    else:
+        return None
+
+    summary = _find_prefixed(article.get("body"), "text(") or article.get(
+        "description", article.get("subtitle", "")
+    )
+    published = _parse_date(article.get("publishDate", article.get("date", "")))
+
+    image_url = ""
+    public_id = article.get("publicId", "")
+    if not public_id:
+        # "media" is the current Apollo field name; "image" kept for
+        # compatibility with the older shape this replaced.
+        media = article.get("media", article.get("image", {}))
+        if isinstance(media, dict):
+            public_id = media.get("publicId", "")
+    if public_id:
+        image_url = f"{IMAGE_BASE}/{public_id}"
+
+    return ContentItem(
+        source="nintendo_news",
+        unique_id=f"nintendo:{entry_id}",
+        title=title,
+        url=url,
+        description=summary[:300],
+        image_url=image_url,
+        published_at=published,
+        extra={"entry_id": entry_id},
+    )
+
+
 def _extract_articles(page_props: dict) -> list[dict]:
-    """Try multiple known paths to locate the article list in __NEXT_DATA__."""
+    """Locate the article list in __NEXT_DATA__.
+
+    As of this writing, Nintendo stores articles in a normalized Apollo
+    Client cache (props.pageProps.initialApolloState), keyed like
+    'NewsArticle:{"id":"...","locale":"en_US"}' - not as a plain list
+    anywhere in pageProps. The older shapes below are kept as a fallback in
+    case that changes again, but are unlikely to ever match now.
+    """
+    apollo = page_props.get("initialApolloState")
+    if isinstance(apollo, dict):
+        articles = [
+            value
+            for key, value in apollo.items()
+            if key.startswith("NewsArticle:") and isinstance(value, dict)
+        ]
+        if articles:
+            return articles
+
     if "articles" in page_props:
         return page_props["articles"]
 
