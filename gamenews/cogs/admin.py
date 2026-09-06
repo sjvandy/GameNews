@@ -242,6 +242,98 @@ class AdminCog(commands.Cog):
             "Check the channel(s) for any event that was created."
         )
 
+    @commands.hybrid_command(name="refresh")
+    @commands.is_owner()
+    @app_commands.describe(
+        url="Optional: only refresh the event for this specific video. "
+        "Omit to refresh every upcoming tracked event."
+    )
+    async def refresh(self, ctx: commands.Context, url: str = "") -> None:
+        """Re-derive tracked event(s) from their current source content and
+        push any changes (corrected date/time, updated description, etc.)
+        to the live Discord event. Non-destructive - only edits fields that
+        already belong to an event this bot created, never deletes.
+        """
+        await ctx.defer()
+
+        guild = self.bot.get_guild(config.GUILD_ID)
+        if guild is None:
+            await ctx.send("Guild not found - check GUILD_ID.")
+            return
+
+        rows = await self.bot.db.get_scheduled_tracked_events()
+        if url:
+            try:
+                video_id = _extract_video_id(url)
+            except ValueError as exc:
+                await ctx.send(str(exc))
+                return
+            rows = [r for r in rows if r["source_unique_id"] == f"youtube:{video_id}"]
+            if not rows:
+                await ctx.send("No upcoming tracked event found for that video.")
+                return
+
+        refreshed: list[str] = []
+        skipped: list[str] = []
+
+        for row in rows:
+            source_unique_id = row["source_unique_id"] or ""
+            if not source_unique_id.startswith("youtube:"):
+                skipped.append(f"{row['name']} (not YouTube-sourced)")
+                continue
+
+            video_id = source_unique_id.split(":", 1)[1]
+            item = await youtube.fetch_single(video_id)
+            if item is None:
+                skipped.append(f"{row['name']} (couldn't refetch video)")
+                continue
+
+            haystack = f"{item.title} {item.description}"
+            if row["event_type"] == "ingame":
+                franchise = self.bot.franchises.get(row["franchise_key"])
+                if franchise is None:
+                    skipped.append(f"{row['name']} (unknown franchise)")
+                    continue
+                date_range = event_dates.extract_date_range(
+                    haystack, default_duration=event_dates.DEFAULT_INGAME_DURATION
+                )
+                if date_range is None:
+                    skipped.append(f"{row['name']} (no parseable future date anymore)")
+                    continue
+                candidate = build_event_candidate(item, "ingame", date_range, franchise=franchise)
+            else:
+                date_range = event_dates.extract_date_range(
+                    haystack, default_duration=event_dates.DEFAULT_MEDIA_DURATION
+                )
+                if date_range is None:
+                    skipped.append(f"{row['name']} (no parseable future date anymore)")
+                    continue
+                branded_franchise = self.bot.franchises.get(row["branded_franchise_key"])
+                candidate = build_event_candidate(
+                    item,
+                    "media",
+                    date_range,
+                    franchise=branded_franchise,
+                    branded_franchise_key=row["branded_franchise_key"],
+                )
+
+            old_start = row["start_time"]
+            try:
+                await self.bot.event_manager.refresh_event(guild, row, candidate)
+            except discord.HTTPException:
+                logger.exception("Failed to refresh event %s", row["guild_scheduled_event_id"])
+                skipped.append(f"{row['name']} (Discord API error - see logs)")
+                continue
+
+            refreshed.append(f"**{candidate.name}**: `{old_start}` -> `{candidate.start_time.isoformat()}`")
+
+        lines = []
+        if refreshed:
+            lines.append(f"Refreshed {len(refreshed)} event(s):\n" + "\n".join(f"- {r}" for r in refreshed))
+        if skipped:
+            lines.append(f"Skipped {len(skipped)}:\n" + "\n".join(f"- {s}" for s in skipped))
+        await ctx.send("\n\n".join(lines) if lines else "No upcoming tracked events to refresh.")
+
     def _dedupe_key(self, url: str) -> str:
         """Normalize a link for duplicate comparison. YouTube links compare
         by video ID so URL variants (tracking params, youtu.be vs full
