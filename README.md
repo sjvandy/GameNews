@@ -24,7 +24,8 @@ the bot's own generic identity:
 | Splatoon 3 | **Deep Cut** (Shiver, Frye & Big Man, Splatoon 3's own Anchor news trio) |
 | Monster Hunter | **Alma** |
 | Legend of Zelda | **Purah** |
-| Newsroom (unbranded Nintendo/PlayStation content) | **Kosuke Takagi** (a Mii) |
+| Newsroom - Nintendo content (Directs, unbranded news) | **Kosuke Takagi** (a Mii) |
+| Newsroom - PlayStation content (State of Plays) | **Asuka Sato** |
 
 The bot's own Developer Portal identity ("GameNews") is separate from these
 and isn't shown when content posts - see [Reporter personas](#reporter-personas) below.
@@ -52,10 +53,12 @@ and isn't shown when content posts - see [Reporter personas](#reporter-personas)
    [App identity](#app-identity) below for suggested copy
 7. Go to **OAuth2 > URL Generator**
 8. Select both the **bot** and **applications.commands** scopes (the second
-   is required for `/cleanup` and `/duplicates` to appear as slash commands)
+   is required for `/cleanup`, `/duplicates`, `/mute`, and `/unmute` to
+   appear as slash commands)
 9. Select permissions: **View Channel**, **Send Messages**, **Embed Links**,
    **Read Message History**, **Manage Events**, **Manage Webhooks**,
-   **Mention @everyone, @here, and All Roles**
+   **Manage Roles** (needed for `/mute`/`/unmute` to add/remove a member's
+   own platform role), **Mention @everyone, @here, and All Roles**
 10. Copy the generated URL, open it in your browser, and invite the bot to
     your server (re-invite with this URL even if the bot's already in your
     server, since Discord won't let you add permissions/scopes to an
@@ -88,9 +91,10 @@ cp .env.example .env
 Edit `.env` and fill in your values (see [Configuration Reference](#configuration-reference)).
 
 Edit `gamenews/franchises.yaml` to set each franchise's real `channel_id` and
-`role_id`, and the `media_events.fallback_channel_id` (your `newsroom`
-channel) - adding a new franchise only requires a config entry here, no code
-change.
+`role_id`, and each `media_events.platforms` entry's `channel_id`/`role_id`
+(your `#nintendo-news` and `#playstation-news` channels - see
+[Platform news channels](#platform-news-channels)) - adding a new franchise
+only requires a config entry here, no code change.
 
 ### 4. Run
 
@@ -101,8 +105,9 @@ python bot.py
 On first run, the bot will:
 1. Connect to Discord
 2. Import any existing `data/seen_posts.json` into the new SQLite database
-   (or, if that file doesn't exist either, scan the fallback/newsroom
-   channel's history to avoid reposting content already there)
+   (or, if that file doesn't exist either, scan each platform news
+   channel's history - and skip anything already posted to the retired
+   `legacy_newsroom_channel_id` - to avoid reposting content already there)
 3. Begin polling content sources on `POLL_INTERVAL_MINUTES`, checking for due
    scheduled events on `EVENT_CHECK_INTERVAL_MINUTES`, and (if Splatoon 3's
    in-game events are enabled) polling splatoon3.ink hourly
@@ -131,7 +136,7 @@ are either older than `MAX_CONTENT_AGE_DAYS`, or - for YouTube-sourced posts
 - no longer match the current `franchises.yaml` routing rules (useful after
 changing a franchise's keywords, like the Monster Hunter "wilds" filter).
 
-**`/duplicates channel:#newsroom`** - finds repeated posts of the *same*
+**`/duplicates channel:#nintendo-news`** - finds repeated posts of the *same*
 link in a channel, keeping the oldest copy and flagging every later repost.
 This is what you want after switching bots (or after any dedup gap) and
 finding the same video posted twice - e.g. once by an earlier bot, once by
@@ -143,18 +148,23 @@ Review the dry-run list, then re-run with confirm checked
 
 ## Reporter personas
 
-Each franchise (and the newsroom fallback) has a `reporter_name` and
-optional `reporter_avatar_path` in `gamenews/franchises.yaml`. On first use,
-the bot creates a webhook in that channel named after the persona; content
-posts and live-event pings both go through it, so they show up under that
-name/avatar instead of the bot's own.
+Each franchise has a `reporter_name` and optional `reporter_avatar_path` in
+`gamenews/franchises.yaml`. On first use, the bot creates a webhook in that
+channel named after the persona; content posts and live-event pings both go
+through it, so they show up under that name/avatar instead of the bot's own.
+
+Nintendo and PlayStation news each get their own channel and persona,
+under `media_events.platforms` (see
+[Platform news channels](#platform-news-channels)). The channel decides the
+persona, so `#nintendo-news` always posts as Kosuke Takagi and
+`#playstation-news` as Asuka Sato.
 
 To add artwork once you've designed it:
 
 1. Drop a square PNG (Discord recommends 512x512, but anything roughly
    square works) into `gamenews/assets/reporters/`, matching the
-   `reporter_avatar_path` already set for that franchise (e.g.
-   `deep_cut.png`, `alma.png`, `purah.png`, `mii.png`).
+   `reporter_avatar_path` already set (e.g. `deep_cut.png`, `alma.png`,
+   `purah.png`, `mii.png`, `asuka_sato.png`).
 2. Restart the bot - it detects the file and updates the webhook's avatar
    automatically. No code change needed.
 
@@ -164,6 +174,64 @@ default webhook icon - this is expected, not an error.
 Want a banner too? That's a per-server Discord feature (Server Settings >
 Overview > Banner), not something a bot or webhook can set - it's a one-time
 manual upload whenever you're ready.
+
+## Platform news channels
+
+The old shared `#newsroom` is retired. News that matches no franchise goes to
+one channel per platform instead:
+
+```yaml
+media_events:
+  default_platform: nintendo            # where untagged content goes
+  legacy_newsroom_channel_id: 1469077505528037521
+  platforms:
+    nintendo:
+      channel_id: 123456789012345678    # #nintendo-news
+      reporter_name: "Kosuke Takagi"
+      reporter_avatar_path: "gamenews/assets/reporters/mii.png"
+      role_id: 223456789012345678       # "Nintendo News" opt-in ping role
+    playstation:
+      channel_id: 123456789012345679    # #playstation-news
+      reporter_name: "Asuka Sato"
+      reporter_avatar_path: "gamenews/assets/reporters/asuka_sato.png"
+      role_id: 223456789012345679       # "PlayStation News" opt-in ping role
+```
+
+Which channel an item lands in is decided by its **source**, not its title:
+each `media_events.sources` entry can carry `platform: nintendo` /
+`platform: playstation`, and anything fetched from that source keeps that
+tag. Anything untagged (the Nintendo News site, `@nintendoamerica`, ...) goes
+to `default_platform`. Branded Directs (e.g. a Zelda Direct) still also ping
+that franchise's own channel.
+
+`legacy_newsroom_channel_id` is optional. On first run of each new channel,
+the bot skips anything already posted there so the new channels don't get
+flooded with old news.
+
+### Setup
+
+1. Create `#nintendo-news` and `#playstation-news` (a "News" category works
+   well) and two roles, **Nintendo News** and **PlayStation News**, with no
+   members. Copy their IDs into `franchises.yaml`.
+2. Give the bot **Manage Webhooks** in both channels.
+3. Server Settings > Overview > **Default Notification Settings: Only
+   @mentions**, so neither channel notifies anyone for ordinary posts.
+4. Optionally archive or delete `#newsroom`.
+
+### Muted by default
+
+Discord doesn't let a bot change someone's notification settings, so "muted
+by default" works through the ping roles. Scheduled and live pings for
+Directs and State of Plays only `@`-mention that platform's role, and that
+role starts empty. Members opt in themselves:
+
+**`/unmute platform:nintendo`** - joins the Nintendo News role, so you get
+pinged in `#nintendo-news` when a Direct is scheduled and when it goes live.
+
+**`/mute platform:nintendo`** - leaves the role again (back to the default).
+
+Until a platform's `role_id` is set, its events don't ping anyone and
+`/mute`/`/unmute` for it will say so.
 
 ## App identity
 
@@ -235,4 +303,11 @@ rather than tied to any one game.
   error names the offending franchise/field directly.
 - **Missed content after restart:** Delete `data/gamenews.sqlite3` to
   re-seed (channel-history scanning avoids duplicate reposts on the
-  newsroom/fallback channel only).
+  platform news channels only).
+- **`/mute`/`/unmute` says the role isn't set up:** Create the role in
+  Server Settings > Roles, paste its ID into that platform's `role_id` in
+  `franchises.yaml`, and restart.
+- **`/mute`/`/unmute` fails with a permissions error:** The bot needs
+  **Manage Roles**, and its own role must sit *above* the platform role in
+  Server Settings > Roles (Discord won't let a bot grant/remove a role
+  positioned above its own, regardless of the Manage Roles permission).

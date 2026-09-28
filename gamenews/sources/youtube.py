@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import datetime, timezone
@@ -17,15 +18,37 @@ OEMBED_URL = "https://www.youtube.com/oembed"
 WATCH_URL_TEMPLATE = "https://www.youtube.com/watch?v={video_id}"
 
 
+RSS_ATTEMPTS = 5
+RSS_RETRY_BASE_DELAY_SECONDS = 2.0
+
+
+async def _get_feed_text(channel_id: str) -> str:
+    """YouTube's RSS endpoint intermittently 404s/500s for valid channels
+    (measured ~50% failure for PlayStation's), so retry with backoff rather
+    than losing the whole poll cycle to one bad response."""
+    url = RSS_URL_TEMPLATE.format(channel_id=channel_id)
+    async with aiohttp.ClientSession() as session:
+        for attempt in range(1, RSS_ATTEMPTS + 1):
+            try:
+                async with session.get(url) as resp:
+                    resp.raise_for_status()
+                    return await resp.text()
+            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                if attempt == RSS_ATTEMPTS:
+                    raise
+                delay = RSS_RETRY_BASE_DELAY_SECONDS * 2 ** (attempt - 1)
+                logger.warning(
+                    "YouTube (%s): attempt %d/%d failed (%s) - retrying in %.0fs",
+                    channel_id, attempt, RSS_ATTEMPTS, exc, delay,
+                )
+                await asyncio.sleep(delay)
+    raise AssertionError("unreachable")
+
+
 async def fetch(channel_id: str) -> list[ContentItem]:
     """Fetch recent videos from a YouTube channel's RSS feed."""
     try:
-        url = RSS_URL_TEMPLATE.format(channel_id=channel_id)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                resp.raise_for_status()
-                text = await resp.text()
-
+        text = await _get_feed_text(channel_id)
         feed = feedparser.parse(text)
         items: list[ContentItem] = []
 

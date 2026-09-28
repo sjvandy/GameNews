@@ -27,6 +27,7 @@ class EventCandidate:
     end_time: datetime
     location: str
     cover_image_url: str | None
+    platform: str | None = None  # media event only: which platform channel/role to use
 
 
 def build_event_candidate(
@@ -37,6 +38,7 @@ def build_event_candidate(
     franchise: Franchise | None = None,
     branded_franchise_key: str | None = None,
     location_override: str | None = None,
+    platform: str | None = None,
 ) -> EventCandidate:
     # Discord's EXTERNAL event location field is meant for exactly this - a
     # link/address for the event - so it always points back to the source
@@ -57,4 +59,5 @@ def build_event_candidate(
         end_time=date_range.end,
         location=location[:100],
         cover_image_url=item.image_url or None,
+        platform=platform,
     )

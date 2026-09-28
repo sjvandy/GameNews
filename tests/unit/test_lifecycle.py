@@ -167,6 +167,72 @@ async def test_create_event_is_idempotent_once_announced(db, registry):
     webhook.send.assert_not_called()
 
 
+def _make_media_candidate(
+    source_unique_id: str = "youtube:state-of-play-99", platform: str | None = "playstation"
+) -> EventCandidate:
+    return EventCandidate(
+        event_type="media",
+        franchise_key=None,
+        branded_franchise_key=None,
+        source_unique_id=source_unique_id,
+        name="State of Play — September 2026",
+        description="desc",
+        start_time=datetime.now(timezone.utc) + timedelta(days=1),
+        end_time=datetime.now(timezone.utc) + timedelta(days=1, hours=1),
+        location="https://www.youtube.com/watch?v=state-of-play-99",
+        cover_image_url=None,
+        platform=platform,
+    )
+
+
+@pytest.mark.asyncio
+async def test_media_event_announcement_uses_platform_persona_and_role(db, registry):
+    # Feature: a PlayStation media event posts in #playstation-news under the
+    # playstation persona and pings that platform's opt-in role.
+    candidate = _make_media_candidate()
+    bot, webhook = _mock_bot()
+
+    created_event = MagicMock(spec=discord.ScheduledEvent)
+    created_event.id = 777
+    guild = MagicMock(spec=discord.Guild)
+    guild.id = 929578849350582302
+    guild.create_scheduled_event = AsyncMock(return_value=created_event)
+
+    manager = EventLifecycleManager(bot, db, registry)
+    await manager.create_event(guild, candidate)
+
+    bot.webhooks.get.assert_awaited_once_with(
+        registry.media_events.channel_for_platform("playstation"),
+        "Asuka Sato",
+        "gamenews/assets/reporters/asuka_sato.png",
+    )
+    sent_content = webhook.send.call_args.kwargs.get("content", "")
+    assert f"<@&{registry.media_events.role_for_platform('playstation')}>" in sent_content
+
+
+@pytest.mark.asyncio
+async def test_media_event_without_platform_uses_default_platform_channel(db, registry):
+    candidate = _make_media_candidate(source_unique_id="youtube:unbranded-media-1", platform=None)
+    bot, webhook = _mock_bot()
+
+    created_event = MagicMock(spec=discord.ScheduledEvent)
+    created_event.id = 778
+    guild = MagicMock(spec=discord.Guild)
+    guild.id = 929578849350582302
+    guild.create_scheduled_event = AsyncMock(return_value=created_event)
+
+    manager = EventLifecycleManager(bot, db, registry)
+    await manager.create_event(guild, candidate)
+
+    bot.webhooks.get.assert_awaited_once_with(
+        registry.media_events.channel_for_platform("nintendo"),
+        "Kosuke Takagi",
+        "gamenews/assets/reporters/mii.png",
+    )
+    sent_content = webhook.send.call_args.kwargs.get("content", "")
+    assert f"<@&{registry.media_events.role_for_platform('nintendo')}>" in sent_content
+
+
 @pytest.mark.asyncio
 async def test_create_event_backfills_announcement_for_pre_existing_row(db, registry):
     # Simulates an event created by a version of the bot before the

@@ -178,7 +178,7 @@ franchises:
       - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["zelda"]}
 
 media_events:
-  fallback_channel_id: 000000000000000000   # newsroom, unless a dedicated Directs channel is wanted
+  default_platform: nintendo   # superseded: #newsroom is now split per platform - see README "Platform news channels"
   sources:
     - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["nintendo direct"]}
     - {type: youtube, channel_id: "UC-2Y8dQb0S6DtpxNgAKoJKA", title_keywords: ["state of play"]}

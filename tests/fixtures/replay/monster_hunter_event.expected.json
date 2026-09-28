@@ -17,7 +17,8 @@
     "start_time": "2026-09-20T00:00:00+00:00",
     "end_time": "2026-09-22T00:00:00+00:00",
     "location": "https://www.youtube.com/watch?v=mh-event-quest-1",
-    "cover_image_url": "https://i.ytimg.com/vi/mh-event-quest-1/hqdefault.jpg"
+    "cover_image_url": "https://i.ytimg.com/vi/mh-event-quest-1/hqdefault.jpg",
+    "platform": null
   },
   "media_event": null,
   "rejection_reasons": []

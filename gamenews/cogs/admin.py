@@ -324,6 +324,7 @@ class AdminCog(commands.Cog):
                     date_range,
                     franchise=branded_franchise,
                     branded_franchise_key=row["branded_franchise_key"],
+                    platform=row["platform"],
                 )
 
             old_start = row["start_time"]

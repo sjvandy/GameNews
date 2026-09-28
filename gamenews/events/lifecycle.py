@@ -72,6 +72,7 @@ class EventLifecycleManager:
             name=candidate.name,
             start_time=candidate.start_time,
             end_time=candidate.end_time,
+            platform=candidate.platform,
         )
         logger.info("Created scheduled event %s: %s", event.id, candidate.name)
 
@@ -113,12 +114,16 @@ class EventLifecycleManager:
             return None
 
     def _ping_targets(
-        self, event_type: str, franchise_key: str | None, branded_franchise_key: str | None
+        self,
+        event_type: str,
+        franchise_key: str | None,
+        branded_franchise_key: str | None,
+        platform: str | None = None,
     ) -> list[tuple[int, int | None]]:
         """Where an event's announcements go: its own franchise channel+role
-        for an in-game event; for a media event, a general notice in the
-        fallback channel plus - if branded (FR-5) - an additional ping in
-        that franchise's own channel. Shared by the creation announcement
+        for an in-game event; for a media event, a notice in `platform`'s own
+        channel - pinging its opt-in role if one is configured - plus, if
+        branded (FR-5), an additional ping in that franchise's own channel. Shared by the creation announcement
         and the go-live ping, so both reach the same audience.
         """
         targets: list[tuple[int, int | None]] = []
@@ -129,7 +134,12 @@ class EventLifecycleManager:
                 targets.append((franchise.channel_id, franchise.role_id))
             return targets
 
-        targets.append((self.registry.media_events.fallback_channel_id, None))
+        targets.append(
+            (
+                self.registry.media_events.channel_for_platform(platform),
+                self.registry.media_events.role_for_platform(platform),
+            )
+        )
         if branded_franchise_key:
             branded = self.registry.get(branded_franchise_key)
             if branded:
@@ -157,7 +167,10 @@ class EventLifecycleManager:
     ) -> None:
         event_url = f"https://discord.com/events/{guild_id}/{event.id}"
         for channel_id, role_id in self._ping_targets(
-            candidate.event_type, candidate.franchise_key, candidate.branded_franchise_key
+            candidate.event_type,
+            candidate.franchise_key,
+            candidate.branded_franchise_key,
+            candidate.platform,
         ):
             mention = f"<@&{role_id}> " if role_id else ""
             await self._post_to_channel(
@@ -209,7 +222,10 @@ class EventLifecycleManager:
 
             if row["role_pinged_at"] is None:
                 targets = self._ping_targets(
-                    row["event_type"], row["franchise_key"], row["branded_franchise_key"]
+                    row["event_type"],
+                    row["franchise_key"],
+                    row["branded_franchise_key"],
+                    row["platform"],
                 )
                 for channel_id, role_id in targets:
                     await self._send_live_ping(channel_id, role_id, row["name"])

@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS tracked_events (
     event_type                TEXT NOT NULL CHECK(event_type IN ('ingame','media')),
     franchise_key             TEXT,
     branded_franchise_key     TEXT,
+    platform                  TEXT,
     source_unique_id          TEXT,
     name        TEXT NOT NULL,
     start_time  TEXT NOT NULL,
@@ -46,6 +47,7 @@ CREATE INDEX IF NOT EXISTS idx_tracked_events_status ON tracked_events(status);
 # PRAGMA user_version so each migration runs at most once.
 MIGRATIONS: list[str] = [
     "ALTER TABLE tracked_events ADD COLUMN announced_at TEXT",
+    "ALTER TABLE tracked_events ADD COLUMN platform TEXT",
 ]
 
 
@@ -187,14 +189,16 @@ class Database:
         name: str,
         start_time: datetime,
         end_time: datetime,
+        platform: str | None = None,
     ) -> int:
         def _insert() -> int:
             cur = self._conn.execute(
                 """
                 INSERT INTO tracked_events (
                     guild_scheduled_event_id, event_type, franchise_key,
-                    branded_franchise_key, source_unique_id, name, start_time, end_time
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    branded_franchise_key, source_unique_id, name, start_time, end_time,
+                    platform
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     guild_scheduled_event_id,
@@ -205,6 +209,7 @@ class Database:
                     name,
                     _iso(start_time),
                     _iso(end_time),
+                    platform,
                 ),
             )
             self._conn.commit()

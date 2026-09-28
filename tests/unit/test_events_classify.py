@@ -69,3 +69,31 @@ def test_unbranded_direct_has_no_franchise_tag(registry):
 def test_non_direct_item_is_not_a_media_event(registry):
     item = make_item(title="Splatoon 3 Side Order DLC Trailer")
     assert classify.classify_media(item, registry) is None
+
+
+NINTENDO_CHANNEL = "UCGIY_O-8vW4rfX98KlMkvRg"
+
+
+def _from_channel(title: str, channel_id: str):
+    item = make_item(title=title)
+    item.extra = {"channel_id": channel_id}
+    return item
+
+
+def test_game_named_direct_from_nintendo_channel_is_direct(registry):
+    # "Donkey Kong Bananza Direct" has no franchise in the registry and no
+    # "nintendo direct" phrase - a whole-word "Direct" on Nintendo's own
+    # channel (match_direct_word) is what catches it.
+    for title in ["Donkey Kong Bananza Direct 10.2.2026", "Nintendo Switch 2 Direct 10.2.2026"]:
+        result = classify.classify_media(_from_channel(title, NINTENDO_CHANNEL), registry)
+        assert result is not None and result.is_direct, title
+
+
+def test_direct_substring_in_other_words_is_not_direct(registry):
+    for title in ["Mario Kart World director interview", "Straight from the devs, directly"]:
+        assert classify.classify_media(_from_channel(title, NINTENDO_CHANNEL), registry) is None, title
+
+
+def test_direct_word_ignored_on_channels_not_opted_in(registry):
+    item = _from_channel("Astro Bot Direct feed highlights", "UC-2Y8dQb0S6DtpxNgAKoJKA")
+    assert classify.classify_media(item, registry) is None

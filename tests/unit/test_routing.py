@@ -22,13 +22,13 @@ def test_franchise_keyword_match_routes_to_franchise_channel(registry):
     assert routed[0].matched_franchises == ["splatoon-3"]
 
 
-def test_no_keyword_match_falls_back_to_newsroom(registry):
-    # TC-2: no franchise keyword match falls back to newsroom.
+def test_no_keyword_match_falls_back_to_platform_channel(registry):
+    # TC-2: no franchise keyword match falls back to that source's platform channel.
     item = make_item(title="Super Mario Kart World amiibo unboxing")
     routed = route_items(registry, {NINTENDO_YT: [item]})
 
     assert len(routed) == 1
-    assert routed[0].channel_ids == [registry.media_events.fallback_channel_id]
+    assert routed[0].channel_ids == [registry.media_events.channel_for_platform("nintendo")]
     assert routed[0].matched_franchises == []
 
 
@@ -41,6 +41,39 @@ def test_multi_franchise_match_cross_posts_to_both_channels(registry):
     zelda = registry.get("legend-of-zelda")
     assert set(routed[0].channel_ids) == {splatoon.channel_id, zelda.channel_id}
     assert set(routed[0].matched_franchises) == {"splatoon-3", "legend-of-zelda"}
+
+
+def test_playstation_item_routes_to_playstation_channel(registry):
+    # Feature: an unbranded item from a PlayStation source lands in
+    # #playstation-news, not #nintendo-news.
+    playstation_target = FetchTarget("youtube", "UC-2Y8dQb0S6DtpxNgAKoJKA")
+    item = make_item(title="Some random PlayStation Blog roundup video")
+    routed = route_items(registry, {playstation_target: [item]})
+
+    assert len(routed) == 1
+    assert routed[0].channel_ids == [registry.media_events.channel_for_platform("playstation")]
+    assert routed[0].platform == "playstation"
+
+
+def test_fallback_item_from_nintendo_source_tagged_nintendo(registry):
+    item = make_item(title="Super Mario Kart World amiibo unboxing")
+    routed = route_items(registry, {NINTENDO_YT: [item]})
+
+    assert len(routed) == 1
+    assert routed[0].platform == "nintendo"
+
+
+def test_fallback_item_from_untagged_source_goes_to_default_platform(registry):
+    # A fetch target no media_events source claims a platform for (e.g. the
+    # Nintendo News site) - with #newsroom retired it goes to the default
+    # platform's channel.
+    untagged_target = FetchTarget("youtube", "some-other-channel-id")
+    item = make_item(title="A totally unrelated video")
+    routed = route_items(registry, {untagged_target: [item]})
+
+    assert len(routed) == 1
+    assert routed[0].platform == "nintendo"
+    assert routed[0].channel_ids == [registry.media_events.channel_for_platform("nintendo")]
 
 
 def test_unfiltered_source_ingests_everything(registry):

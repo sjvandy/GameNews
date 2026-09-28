@@ -27,8 +27,21 @@ franchises:
       - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["zelda"]}
 
 media_events:
-  fallback_channel_id: 999999999999999999
+  default_platform: nintendo
+  legacy_newsroom_channel_id: 999999999999999999
   sources:
-    - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["nintendo direct"]}
+    - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["nintendo direct"], platform: nintendo, match_direct_word: true}
+    - {type: youtube, channel_id: "UC-2Y8dQb0S6DtpxNgAKoJKA", title_keywords: ["state of play"], platform: playstation}
   franchise_branding_keywords:
     legend-of-zelda: ["zelda"]
+  platforms:
+    nintendo:
+      channel_id: 444444444444444444
+      reporter_name: "Kosuke Takagi"
+      reporter_avatar_path: "gamenews/assets/reporters/mii.png"
+      role_id: 244444444444444444
+    playstation:
+      channel_id: 555555555555555555
+      reporter_name: "Asuka Sato"
+      reporter_avatar_path: "gamenews/assets/reporters/asuka_sato.png"
+      role_id: 255555555555555555

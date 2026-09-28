@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class WebhookManager:
-    """Gives each franchise/newsroom channel its own persistent posting
+    """Gives each franchise/platform channel its own persistent posting
     identity (a name + avatar, e.g. "Shiver" for Splatoon) via a per-channel
     Discord webhook, rather than every message coming from the bot's own
     generic identity. Requires the Manage Webhooks permission.
