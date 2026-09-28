@@ -56,7 +56,19 @@ def classify_media(item: ContentItem, registry: FranchiseRegistry) -> MediaClass
             branded_key = key
             break
 
-    is_direct = branded_key is not None or _matches_any(haystack, registry.media_events.keywords())
+    # Nintendo names Directs after the game ("Donkey Kong Bananza Direct",
+    # "Nintendo Switch 2 Direct") without the exact phrase "nintendo direct",
+    # so on opted-in channels a whole-word "Direct" is enough. Deliberately
+    # not a plain "direct" keyword: substring matching would also catch
+    # "director"/"directly", and on every source, not just Nintendo's.
+    from_direct_channel = (
+        item.extra.get("channel_id") in registry.media_events.direct_word_channel_ids()
+    )
+    is_direct = (
+        branded_key is not None
+        or (has_direct_word and from_direct_channel)
+        or _matches_any(haystack, registry.media_events.keywords())
+    )
     if not is_direct:
         return None
 

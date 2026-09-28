@@ -18,7 +18,8 @@
     "start_time": "2026-09-04T14:00:00+00:00",
     "end_time": "2026-09-04T15:00:00+00:00",
     "location": "https://www.youtube.com/watch?v=zelda-direct-2026-09-08",
-    "cover_image_url": "https://i.ytimg.com/vi/zelda-direct-2026-09-08/hqdefault.jpg"
+    "cover_image_url": "https://i.ytimg.com/vi/zelda-direct-2026-09-08/hqdefault.jpg",
+    "platform": null
   },
   "rejection_reasons": []
 }

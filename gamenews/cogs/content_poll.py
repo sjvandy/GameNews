@@ -108,7 +108,7 @@ class ContentPollCog(commands.Cog):
         fetched = await fetch_all(targets)
         routed = route_items(registry, fetched)
 
-        await self._seed_newsroom_if_needed(routed)
+        await self._seed_platform_channels_if_needed(routed)
 
         for routed_item in routed:
             if is_stale(routed_item.item, max_age_days=config.MAX_CONTENT_AGE_DAYS):
@@ -138,23 +138,33 @@ class ContentPollCog(commands.Cog):
                 routed_item.item.unique_id, channel_id, routed_item.item.source
             )
 
-    async def _seed_newsroom_if_needed(self, routed: list[RoutedItem]) -> None:
-        newsroom_id = self.bot.franchises.media_events.fallback_channel_id
-        if await self.bot.db.has_any_posting(newsroom_id):
-            return
+    async def _seed_platform_channels_if_needed(self, routed: list[RoutedItem]) -> None:
+        """First run for a platform channel (#nintendo-news, #playstation-news):
+        mark anything already posted - either in that channel's own history
+        or in the retired shared #newsroom - so it isn't re-posted there."""
+        media_events = self.bot.franchises.media_events
+        legacy_id = media_events.legacy_newsroom_channel_id
 
-        channel = self.bot.get_channel(newsroom_id)
-        if channel is None:
-            return
+        for channel_id in media_events.platform_channel_ids():
+            if await self.bot.db.has_any_posting(channel_id):
+                continue
 
-        logger.info("First run detected for #%s - scanning history before posting", channel.name)
-        posted_urls = await scan_channel_history(channel)
+            channel = self.bot.get_channel(channel_id)
+            if channel is None:
+                continue
 
-        for routed_item in routed:
-            if newsroom_id in routed_item.channel_ids and routed_item.item.url in posted_urls:
-                await self.bot.db.mark_posted(
-                    routed_item.item.unique_id, newsroom_id, routed_item.item.source
+            logger.info("First run detected for #%s - scanning history before posting", channel.name)
+            posted_urls = await scan_channel_history(channel)
+
+            for routed_item in routed:
+                if channel_id not in routed_item.channel_ids:
+                    continue
+                item = routed_item.item
+                already_in_newsroom = legacy_id is not None and await self.bot.db.is_posted(
+                    item.unique_id, legacy_id
                 )
+                if item.url in posted_urls or already_in_newsroom:
+                    await self.bot.db.mark_posted(item.unique_id, channel_id, item.source)
 
     async def post_item(self, routed_item: RoutedItem) -> None:
         """Public: also called by AdminCog's /backfill for a single video
@@ -238,6 +248,7 @@ class ContentPollCog(commands.Cog):
             date_range,
             franchise=branded_franchise,
             branded_franchise_key=media_classification.branded_franchise_key,
+            platform=routed_item.platform,
         )
         await self.bot.event_manager.create_event(guild, candidate)
         return True

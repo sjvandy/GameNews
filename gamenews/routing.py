@@ -80,6 +80,7 @@ class RoutedItem:
     item: ContentItem
     channel_ids: list[int] = field(default_factory=list)
     matched_franchises: list[str] = field(default_factory=list)
+    platform: str | None = None  # set only for platform-channel fallback items - see route_items
 
 
 def _matches(text: str, keywords: list[str]) -> bool:
@@ -91,8 +92,9 @@ def route_items(
     registry: FranchiseRegistry, fetched: dict[FetchTarget, list[ContentItem]]
 ) -> list[RoutedItem]:
     """Route each fetched item to every franchise channel whose keywords match
-    (FR-2/FR-3), cross-posting on multi-match, with newsroom as the fallback
-    for anything that matches no franchise (FR-2, TC-1/TC-2)."""
+    (FR-2/FR-3), cross-posting on multi-match, with the source's platform
+    channel (#nintendo-news / #playstation-news) as the fallback for anything
+    that matches no franchise (FR-2, TC-1/TC-2)."""
     routed: list[RoutedItem] = []
     by_unique_id: dict[str, RoutedItem] = {}
 
@@ -116,12 +118,27 @@ def route_items(
                 if franchise.key not in routed_item.matched_franchises:
                     routed_item.matched_franchises.append(franchise.key)
 
-    for items in fetched.values():
+    # Which platform (nintendo/playstation) a media_events source's own
+    # fetch target belongs to, so an item that matches no franchise lands in
+    # that platform's own channel; anything untagged (e.g. the Nintendo News
+    # site) goes to the default platform's channel.
+    target_platforms: dict[FetchTarget, str] = {}
+    for source in registry.media_events.sources:
+        if not source.platform:
+            continue
+        target = _target_for(source)
+        if target is not None:
+            target_platforms.setdefault(target, source.platform)
+
+    for target, items in fetched.items():
+        platform = target_platforms.get(target) or registry.media_events.default_platform
         for item in items:
             if item.unique_id in by_unique_id:
                 continue
             routed_item = RoutedItem(
-                item=item, channel_ids=[registry.media_events.fallback_channel_id]
+                item=item,
+                channel_ids=[registry.media_events.channel_for_platform(platform)],
+                platform=platform,
             )
             by_unique_id[item.unique_id] = routed_item
             routed.append(routed_item)

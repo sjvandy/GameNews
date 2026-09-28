@@ -1,0 +1,16 @@
+franchises:
+  - key: splatoon-3
+    display_name: "Splatoon 3"
+    channel_id: 111111111111111111
+    role_id: 211111111111111111
+    sources:
+      - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["splatoon"]}
+
+media_events:
+  default_platform: nintendo
+  sources:
+    - {type: youtube, channel_id: "UC-2Y8dQb0S6DtpxNgAKoJKA", title_keywords: ["state of play"], platform: xbox}
+  platforms:
+    nintendo:
+      channel_id: 444444444444444444
+      reporter_name: "Kosuke Takagi"

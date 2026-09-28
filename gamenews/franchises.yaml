@@ -36,12 +36,17 @@ franchises:
       - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["zelda"]}
 
 media_events:
-  fallback_channel_id: 1469077505528037521
-  reporter_name: "Kosuke Takagi"
-  reporter_avatar_path: "gamenews/assets/reporters/mii.png"
+  # Untagged content (the Nintendo News site, @nintendoamerica, unbranded
+  # videos, ...) that matches no franchise goes to this platform's channel.
+  default_platform: nintendo
+  # The retired shared #newsroom - only used so first-run seeding of the new
+  # platform channels doesn't re-post anything already posted there.
+  legacy_newsroom_channel_id: 1469077505528037521
   sources:
-    - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["nintendo direct"]}
-    - {type: youtube, channel_id: "UC-2Y8dQb0S6DtpxNgAKoJKA", title_keywords: ["state of play"]}
+    # match_direct_word: also catches game-named Directs ("Donkey Kong Bananza
+    # Direct") from this channel - see events/classify.py.
+    - {type: youtube, channel_id: "UCGIY_O-8vW4rfX98KlMkvRg", title_keywords: ["nintendo direct"], platform: nintendo, match_direct_word: true}
+    - {type: youtube, channel_id: "UC-2Y8dQb0S6DtpxNgAKoJKA", title_keywords: ["state of play"], platform: playstation}
   # Matched against titles/descriptions that also contain the standalone
   # word "Direct" (see events/classify.py) - kept as single trigger words
   # rather than full phrases like "zelda direct", since real titles often
@@ -51,3 +56,18 @@ media_events:
     splatoon-3: ["splatoon"]
     monster-hunter: ["monster hunter"]
     legend-of-zelda: ["zelda"]
+  # One news channel per platform, each with its own reporter persona.
+  # Both are muted by default: event announcements/go-live pings only
+  # mention role_id, which starts with no members - people opt in with
+  # /unmute platform:<key> and opt back out with /mute.
+  platforms:
+    nintendo:
+      channel_id: 1553902037760999485
+      reporter_name: "Amelia N"
+      reporter_avatar_path: "gamenews/assets/reporters/mii.png"
+      role_id: 1553902245295423510
+    playstation:
+      channel_id: 1553902068824019065
+      reporter_name: "Astrobot"
+      reporter_avatar_path: "gamenews/assets/reporters/astrobot.png"
+      role_id: 1553902150126407792

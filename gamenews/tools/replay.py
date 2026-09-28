@@ -75,7 +75,7 @@ def run_replay_from_item(
     routed_item = routed[0] if routed else None
 
     routed_channel_ids = routed_item.channel_ids if routed_item else [
-        registry.media_events.fallback_channel_id
+        registry.media_events.channel_for_platform(None)
     ]
     matched_franchises = routed_item.matched_franchises if routed_item else []
 
@@ -116,6 +116,7 @@ def run_replay_from_item(
                 date_range,
                 franchise=branded_franchise,
                 branded_franchise_key=media_classification.branded_franchise_key,
+                platform=routed_item.platform if routed_item else None,
             )
 
     return ReplayResult(

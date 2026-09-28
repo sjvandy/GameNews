@@ -18,6 +18,10 @@ class FranchiseSource:
     channel_id: str | None = None  # YouTube channel id (string, not a Discord snowflake)
     username: str | None = None  # Instagram username
     feeds: list[str] = field(default_factory=list)  # splatoon3ink feed names
+    platform: str | None = None  # media_events source only: which PlatformPersona this feeds
+    # media_events youtube source only: any video from this channel with the
+    # standalone word "Direct" is a Direct, even without a title_keywords hit.
+    match_direct_word: bool = False
 
 
 @dataclass
@@ -34,18 +38,61 @@ class Franchise:
 
 
 @dataclass
+class PlatformPersona:
+    """One platform's own newsroom channel (e.g. #nintendo-news vs
+    #playstation-news): the reporter identity that posts there and the
+    opt-in role its Directs/State of Plays ping."""
+
+    key: str
+    channel_id: int
+    reporter_name: str
+    reporter_avatar_path: str | None = None
+    role_id: int | None = None  # opt-in: only members who /unmute this platform get pinged
+
+
+@dataclass
 class MediaEventsConfig:
-    fallback_channel_id: int
     sources: list[FranchiseSource]
     franchise_branding_keywords: dict[str, list[str]]
-    reporter_name: str = "GameNews"
-    reporter_avatar_path: str | None = None
+    platforms: dict[str, PlatformPersona]
+    default_platform: str  # where untagged content goes
+    # The retired shared #newsroom channel, kept only so the legacy
+    # seen_posts import and first-run seeding of the new platform channels
+    # know what was already posted there.
+    legacy_newsroom_channel_id: int | None = None
 
     def keywords(self) -> list[str]:
         result: list[str] = []
         for source in self.sources:
             result.extend(source.title_keywords)
         return result
+
+    def direct_word_channel_ids(self) -> set[str]:
+        return {
+            s.channel_id
+            for s in self.sources
+            if s.type == "youtube" and s.match_direct_word and s.channel_id
+        }
+
+    def platform_for(self, platform: str | None) -> PlatformPersona:
+        """`platform`'s persona, or the default platform's when `platform`
+        is unset or unknown."""
+        return self.platforms.get(platform or "") or self.platforms[self.default_platform]
+
+    def channel_for_platform(self, platform: str | None) -> int:
+        return self.platform_for(platform).channel_id
+
+    def persona_for_platform(self, platform: str | None) -> tuple[str, str | None]:
+        persona = self.platform_for(platform)
+        return persona.reporter_name, persona.reporter_avatar_path
+
+    def role_for_platform(self, platform: str | None) -> int | None:
+        """The opt-in role to ping for `platform`'s Directs/State of Plays,
+        or None if that platform has no role configured (nobody is pinged)."""
+        return self.platform_for(platform).role_id
+
+    def platform_channel_ids(self) -> list[int]:
+        return [persona.channel_id for persona in self.platforms.values()]
 
 
 @dataclass
@@ -64,11 +111,15 @@ class FranchiseRegistry:
     def persona_for_channel(self, channel_id: int) -> tuple[str, str | None]:
         """The (reporter_name, reporter_avatar_path) that should post in this
         channel - a franchise's own persona if the channel belongs to one,
-        otherwise the newsroom/fallback persona."""
+        otherwise that platform channel's persona (e.g. Nintendo vs
+        PlayStation), falling back to the default platform's."""
         for franchise in self.franchises:
             if franchise.channel_id == channel_id:
                 return franchise.reporter_name, franchise.reporter_avatar_path
-        return self.media_events.reporter_name, self.media_events.reporter_avatar_path
+        for persona in self.media_events.platforms.values():
+            if persona.channel_id == channel_id:
+                return persona.reporter_name, persona.reporter_avatar_path
+        return self.media_events.persona_for_platform(None)
 
 
 _VALID_SOURCE_TYPES = {"youtube", "instagram", "news", "splatoon3ink"}
@@ -98,6 +149,8 @@ def _parse_source(raw: dict, context: str) -> FranchiseSource:
         channel_id=raw.get("channel_id"),
         username=raw.get("username"),
         feeds=list(raw.get("feeds", [])),
+        platform=raw.get("platform"),
+        match_direct_word=bool(raw.get("match_direct_word", False)),
     )
 
 
@@ -126,9 +179,21 @@ def _parse_franchise(raw: dict) -> Franchise:
     )
 
 
+def _parse_platform_persona(key: str, raw: dict, context: str) -> PlatformPersona:
+    channel_id = int(_require(raw, "channel_id", context))
+    reporter_name = _require(raw, "reporter_name", context)
+    role_id_raw = raw.get("role_id")
+    return PlatformPersona(
+        key=key,
+        channel_id=channel_id,
+        reporter_name=reporter_name,
+        reporter_avatar_path=raw.get("reporter_avatar_path"),
+        role_id=int(role_id_raw) if role_id_raw not in (None, "") else None,
+    )
+
+
 def _parse_media_events(raw: dict, franchise_keys: set[str]) -> MediaEventsConfig:
     context = "media_events"
-    fallback_channel_id = int(_require(raw, "fallback_channel_id", context))
 
     sources_raw = raw.get("sources") or []
     sources = [_parse_source(s, f"{context} source") for s in sources_raw]
@@ -141,12 +206,40 @@ def _parse_media_events(raw: dict, franchise_keys: set[str]) -> MediaEventsConfi
                 f"franchise '{franchise_key}'"
             )
 
+    platforms_raw = raw.get("platforms") or {}
+    platforms = {
+        key: _parse_platform_persona(key, p, f"{context}.platforms.'{key}'")
+        for key, p in platforms_raw.items()
+    }
+
+    for source in sources:
+        if source.platform and source.platform not in platforms:
+            raise ConfigError(
+                f"{context} source references unknown platform '{source.platform}' "
+                f"(expected one of {sorted(platforms)})"
+            )
+
+    if not platforms:
+        raise ConfigError(f"{context}: must define at least one platform under 'platforms'")
+
+    default_platform = _require(raw, "default_platform", context)
+    if default_platform not in platforms:
+        raise ConfigError(
+            f"{context}.default_platform '{default_platform}' is not a configured "
+            f"platform (expected one of {sorted(platforms)})"
+        )
+
+    channel_ids = [p.channel_id for p in platforms.values()]
+    if len(channel_ids) != len(set(channel_ids)):
+        raise ConfigError(f"{context}.platforms: each platform needs its own channel_id")
+
+    legacy_raw = raw.get("legacy_newsroom_channel_id")
     return MediaEventsConfig(
-        fallback_channel_id=fallback_channel_id,
         sources=sources,
         franchise_branding_keywords={k: list(v) for k, v in branding.items()},
-        reporter_name=raw.get("reporter_name") or "GameNews",
-        reporter_avatar_path=raw.get("reporter_avatar_path"),
+        platforms=platforms,
+        default_platform=default_platform,
+        legacy_newsroom_channel_id=int(legacy_raw) if legacy_raw not in (None, "") else None,
     )
 
 

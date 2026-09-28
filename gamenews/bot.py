@@ -22,6 +22,7 @@ INITIAL_COGS = (
     "gamenews.cogs.event_scheduler",
     "gamenews.cogs.splatoon_schedule",
     "gamenews.cogs.admin",
+    "gamenews.cogs.notifications",
 )
 
 
@@ -36,7 +37,7 @@ class GameNewsBot(commands.Bot):
         self.db = Database(config.DB_PATH)
         await self.db.init(
             legacy_seen_posts_path=config.LEGACY_SEEN_POSTS_PATH,
-            legacy_fallback_channel_id=self.franchises.media_events.fallback_channel_id,
+            legacy_fallback_channel_id=self.franchises.media_events.legacy_newsroom_channel_id or 0,
         )
 
         self.webhooks = WebhookManager(self)

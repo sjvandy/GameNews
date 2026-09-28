@@ -17,7 +17,8 @@
     "start_time": "2026-09-10T00:00:00+00:00",
     "end_time": "2026-09-12T00:00:00+00:00",
     "location": "https://www.nintendo.com/us/whatsnew/splatoon-3-splatfest-grass-water-fire",
-    "cover_image_url": "https://assets.nintendo.com/splatfest-grass-water-fire.jpg"
+    "cover_image_url": "https://assets.nintendo.com/splatfest-grass-water-fire.jpg",
+    "platform": null
   },
   "media_event": null,
   "rejection_reasons": []
